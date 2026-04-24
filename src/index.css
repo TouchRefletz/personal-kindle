@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Lora", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-paper: #fdfcf9;
+  --color-sidebar: #f8f5f0;
+  --color-ink: #1a1a1a;
+  --color-ink-muted: #6e6c67;
+  --color-ink-light: #9c9a94;
+  --color-border-dark: #e0ddd5;
+  --color-border-light: #f0eee9;
+  --color-gold: #d4af37;
+  --color-highlight: #f9e9ad;
+  --color-surface: #edeae4;
+}
+
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(-5px) translateX(-50%); }
+  50% { transform: translateY(0) translateX(-50%); }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s infinite ease-in-out;
+}

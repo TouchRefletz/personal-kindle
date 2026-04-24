@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Validation Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+
+    // FOLDERS
+    function isValidFolder(data) {
+      return data.userId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100;
+    }
+
+    match /folders/{folderId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(incoming().userId) && isValidFolder(incoming());
+      allow update: if isOwner(existing().userId) && isOwner(incoming().userId) && isValidFolder(incoming());
+      allow delete: if isOwner(existing().userId);
+    }
+
+    // BOOKS
+    function isValidBook(data) {
+      return data.userId == request.auth.uid
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 500
+        && data.content is string && data.content.size() <= 2000000
+        && (!data.keys().hasAll(['isPublic']) || data.isPublic is bool);
+    }
+
+    match /books/{bookId} {
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || resource.data.get('isPublic', false) == true;
+      allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || resource.data.get('isPublic', false) == true;
+      allow create: if isOwner(incoming().userId) && isValidBook(incoming());
+      allow update: if isOwner(existing().userId) && isOwner(incoming().userId) && isValidBook(incoming());
+      allow delete: if isOwner(existing().userId);
+    }
+
+    // ANNOTATIONS
+    function isValidAnnotation(data) {
+      return data.userId == request.auth.uid
+        && data.bookId is string
+        && data.note is string && data.note.size() <= 20000;
+    }
+
+    match /annotations/{annotationId} {
+      allow list: if isSignedIn() && (
+                      resource.data.userId == request.auth.uid || 
+                      resource.data.get('bookOwnerId', '') == request.auth.uid ||
+                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.userId == request.auth.uid ||
+                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.get('isPublic', false) == true
+                    );
+      allow get: if isSignedIn() && (
+                      resource.data.userId == request.auth.uid || 
+                      resource.data.get('bookOwnerId', '') == request.auth.uid ||
+                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.userId == request.auth.uid ||
+                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.get('isPublic', false) == true
+                    );
+      allow create: if isOwner(incoming().userId) && isValidAnnotation(incoming())
+                    && exists(/databases/$(database)/documents/books/$(incoming().bookId))
+                    && get(/databases/$(database)/documents/books/$(incoming().bookId)).data.userId == request.auth.uid;
+      allow update: if isOwner(existing().userId) && isOwner(incoming().userId) && isValidAnnotation(incoming());
+      allow delete: if isOwner(existing().userId) || resource.data.get('bookOwnerId', '') == request.auth.uid || get(/databases/$(database)/documents/books/$(existing().bookId)).data.userId == request.auth.uid;
+    }
+  }
+}
+

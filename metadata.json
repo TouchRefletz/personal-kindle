@@ -1,0 +1,6 @@
+{
+  "name": "NotesBook",
+  "description": "Um e-reader estilo Kindle focado em leitura, anotações, e exportação de textos no formato Markdown otimizado para IAs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

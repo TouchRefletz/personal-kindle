@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "Folder": {
+      "title": "Folder",
+      "description": "User's organizational folder",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "name", "createdAt"]
+    },
+    "Book": {
+      "title": "Book",
+      "description": "A document/book saved by the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "isPublic": { "type": "boolean" },
+        "folderId": { "type": "string", "description": "Optional ID of the folder it belongs to" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["userId", "title", "content", "tags", "createdAt", "updatedAt"]
+    },
+    "Annotation": {
+      "title": "Annotation",
+      "description": "An annotation or highlight within a Book.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "bookId": { "type": "string" },
+        "startIndex": { "type": "number" },
+        "endIndex": { "type": "number" },
+        "selectedText": { "type": "string" },
+        "note": { "type": "string" },
+        "color": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["userId", "bookId", "startIndex", "endIndex", "selectedText", "note", "color", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/folders/{id}": {
+      "schema": { "$ref": "#/entities/Folder" },
+      "description": "Flat collection of all user folders"
+    },
+    "/books/{id}": {
+      "schema": { "$ref": "#/entities/Book" },
+      "description": "Flat collection of all user books/documents"
+    },
+    "/annotations/{id}": {
+      "schema": { "$ref": "#/entities/Annotation" },
+      "description": "Flat collection of annotations across all books"
+    }
+  }
+}
