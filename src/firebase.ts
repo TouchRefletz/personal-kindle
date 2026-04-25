@@ -3,7 +3,12 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/
 import { getFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-export const app = initializeApp(firebaseConfig);
+const config = {
+  ...firebaseConfig,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey
+};
+
+export const app = initializeApp(config);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
