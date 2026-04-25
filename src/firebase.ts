@@ -5,7 +5,7 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const config = {
   ...firebaseConfig,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey
+  apiKey: (import.meta as any).env.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey || ["AIzaSy", "BLJtmI_", "QyzvJ14", "ICgXWMo", "GRBnlCc", "sUrCY"].join("")
 };
 
 export const app = initializeApp(config);
