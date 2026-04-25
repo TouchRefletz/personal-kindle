@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from "uuid";
 import { db } from "../firebase";
 import { ViewState } from "../App";
 import { cn } from "../lib/utils";
-import { GoogleGenAI, Modality, ThinkingLevel } from "@google/genai";
 
 interface ReaderProps {
   bookId: string;
@@ -27,8 +26,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
 
   const canEdit = book?.userId === userId && userId !== "";
 
-  // Optimized AI Instance
-  const ai = useMemo(() => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }), []);
+// Removed ai instance from frontend
 
   const annsRef = collection(db, 'annotations');
   const [annsSnapshot] = useCollection(
@@ -236,20 +234,16 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
           ? `[Por favor, narre o seguinte texto usando pronúncia e sotaque em ${ttsLanguage}:]\n\n${rawText}` 
           : rawText;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: textToRead }] }],
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voiceName },
-            },
-          },
-        },
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ textToRead, voiceName }),
       });
+      const data = await res.json();
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!res.ok) throw new Error(data.error || "Failed to fetch audio");
+
+      const base64Audio = data.audio;
       if (base64Audio) {
         const binaryString = atob(base64Audio);
         const len = binaryString.length;
