@@ -67,18 +67,20 @@ service cloud.firestore {
     }
 
     match /annotations/{annotationId} {
-      allow list: if isSignedIn() && (
+      allow list: if (isSignedIn() && (
                       resource.data.userId == request.auth.uid || 
                       resource.data.get('bookOwnerId', '') == request.auth.uid ||
-                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.userId == request.auth.uid ||
-                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.get('isPublic', false) == true
-                    );
-      allow get: if isSignedIn() && (
+                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.userId == request.auth.uid
+                    )) || 
+                    resource.data.get('isBookPublic', false) == true ||
+                    get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.get('isPublic', false) == true;
+      allow get: if (isSignedIn() && (
                       resource.data.userId == request.auth.uid || 
                       resource.data.get('bookOwnerId', '') == request.auth.uid ||
-                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.userId == request.auth.uid ||
-                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.get('isPublic', false) == true
-                    );
+                      get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.userId == request.auth.uid
+                    )) || 
+                    resource.data.get('isBookPublic', false) == true ||
+                    get(/databases/$(database)/documents/books/$(resource.data.bookId)).data.get('isPublic', false) == true;
       allow create: if isOwner(incoming().userId) && isValidAnnotation(incoming())
                     && exists(/databases/$(database)/documents/books/$(incoming().bookId))
                     && get(/databases/$(database)/documents/books/$(incoming().bookId)).data.userId == request.auth.uid;

@@ -1,4 +1,4 @@
-import { collection, doc, query, where, orderBy, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, setDoc, deleteDoc, updateDoc, getDocs } from "firebase/firestore";
 import { useDocument, useCollection } from "react-firebase-hooks/firestore";
 import { ArrowLeft, Trash2, Download, Menu, X, Play, Square, Settings, Volume2, Plus, Edit2, Save, Bookmark, Undo, Redo, Globe, MoreVertical, Share2, ClipboardCopy, CheckCircle2, ChevronDown, ChevronRight, Home, Settings2, BarChart3, Clock, Type } from "lucide-react";
 import React, { useEffect, useRef, useState, useMemo } from "react";
@@ -425,6 +425,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
         selectedText: selectionRange.text.substring(0, 50000), // Safety limit
         note: currentNote.trim(),
         color: selectedColor,
+        isBookPublic: book.isPublic || false,
         createdAt: Date.now()
       };
       await setDoc(doc(db, 'annotations', id), newData);
@@ -491,6 +492,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
         selectedText: "",
         note: currentGeneralNote.trim(),
         color: "bg-[#e0ddd5]",
+        isBookPublic: book.isPublic || false,
         createdAt: Date.now()
       };
       await setDoc(doc(db, 'annotations', id), newData);
@@ -1100,7 +1102,13 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                                 </div>
                                 <button 
                                   onClick={async () => {
-                                    await updateDoc(doc(db, 'books', book.id), { isPublic: !book.isPublic, updatedAt: Date.now() });
+                                    const newIsPublic = !book.isPublic;
+                                    await updateDoc(doc(db, 'books', book.id), { isPublic: newIsPublic, updatedAt: Date.now() });
+                                    
+                                    const q = query(collection(db, 'annotations'), where('bookId', '==', book.id));
+                                    const annsSnap = await getDocs(q);
+                                    const batchPromises = annsSnap.docs.map(d => updateDoc(doc(db, 'annotations', d.id), { isBookPublic: newIsPublic }));
+                                    await Promise.all(batchPromises);
                                   }}
                                   className="w-full flex items-center justify-between p-2 rounded-lg bg-white border border-border-dark text-[10px] font-bold"
                                 >
@@ -1249,7 +1257,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
               }}
             >
               <p className="text-[10px] uppercase tracking-widest text-ink-light font-bold">
-                {editingGeneralNoteId ? "Editar Ideia" : "Ideia Avulsa"}
+                {editingGeneralNoteId ? (canEdit ? "Editar Ideia" : "Detalhes da Ideia") : "Ideia Avulsa"}
               </p>
               <div className="flex items-center gap-2">
                 <button 
@@ -1271,17 +1279,20 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                 className="w-full h-24 resize-none outline-none font-sans text-sm leading-relaxed text-ink placeholder:text-ink-light bg-transparent"
                 value={currentGeneralNote}
                 onChange={e => setCurrentGeneralNote(e.target.value)}
+                readOnly={!canEdit}
               />
             </div>
-            <div className="px-4 py-3 bg-sidebar flex items-center justify-end">
-              <button 
-                onClick={handleAddGeneralNote}
-                className="text-[10px] uppercase tracking-widest bg-ink text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-30"
-                disabled={!currentGeneralNote.trim()}
-              >
-                Salvar Ideia
-              </button>
-            </div>
+            {canEdit && (
+              <div className="px-4 py-3 bg-sidebar flex items-center justify-end">
+                <button 
+                  onClick={handleAddGeneralNote}
+                  className="text-[10px] uppercase tracking-widest bg-ink text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-30"
+                  disabled={!currentGeneralNote.trim()}
+                >
+                  Salvar Ideia
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1374,7 +1385,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
               }}
             >
               <p className="text-[10px] uppercase tracking-widest text-ink-light font-bold">
-                {editingAnnotationId ? "Editar Anotação" : "Anotar Seleção"}
+                {editingAnnotationId ? (canEdit ? "Editar Anotação" : "Detalhes da Anotação") : "Anotar Seleção"}
               </p>
               <button 
                 onClick={() => { 
@@ -1397,6 +1408,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                 className="w-full h-24 resize-none outline-none font-serif text-sm leading-relaxed text-ink placeholder:text-ink-light bg-transparent"
                 value={currentNote}
                 onChange={e => setCurrentNote(e.target.value)}
+                readOnly={!canEdit}
               />
             </div>
             <div className="px-4 py-3 bg-sidebar flex items-center justify-between border-t border-border-light">
@@ -1404,17 +1416,19 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                 {["bg-highlight", "bg-gold/30", "bg-[#e0ddd5]"].map(color => (
                   <button
                     key={color}
-                    onClick={() => setSelectedColor(color)}
-                    className={cn("w-4 h-4 rounded-full border transition-all cursor-pointer", color, selectedColor === color ? "border-ink scale-110" : "border-transparent")}
+                    onClick={() => canEdit && setSelectedColor(color)}
+                    className={cn("w-4 h-4 rounded-full border transition-all", canEdit ? "cursor-pointer" : "cursor-default", color, selectedColor === color ? "border-ink scale-110" : "border-transparent")}
                   />
                 ))}
               </div>
-              <button 
-                onClick={() => handleAddAnnotation(true)}
-                className="text-[10px] uppercase tracking-widest bg-ink text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity"
-              >
-                Salvar Nota
-              </button>
+              {canEdit && (
+                <button 
+                  onClick={() => handleAddAnnotation(true)}
+                  className="text-[10px] uppercase tracking-widest bg-ink text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity"
+                >
+                  Salvar Nota
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1436,7 +1450,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
           onPointerLeave={handleMarkLeave}
           onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
-          {canEdit && (
+          {activeNoteMenu.note && (
             <>
               <button
                 onPointerDown={(e) => { 
@@ -1445,7 +1459,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                     handleOpenEditNote(activeNoteMenu);
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 hover:bg-white/10 rounded-md text-[11px] font-sans font-semibold uppercase tracking-wider transition-colors active:scale-95 whitespace-nowrap cursor-pointer touch-none"
-                title="Ver e Editar Nota"
+                title="Ver Nota"
               >
                 <Plus className="w-3 h-3 rotate-45" />
                 <span>Ver Nota</span>
