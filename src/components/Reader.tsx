@@ -102,6 +102,7 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
   // Menu State
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [copiedAnnotationId, setCopiedAnnotationId] = useState<string | null>(null);
 
   const pushToHistory = (item: { undo: () => Promise<void>, redo: () => Promise<void> }) => {
     undoStack.current.push(item);
@@ -517,6 +518,26 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
     }
   }
 
+  async function handleCopyNote(ann: any) {
+    try {
+      let textToCopy = "";
+      if (ann.selectedText || ann.text) {
+        textToCopy += `"${ann.selectedText || ann.text}"\n`;
+      }
+      if ((ann.selectedText || ann.text) && ann.note) {
+        textToCopy += `\n`;
+      }
+      if (ann.note) {
+        textToCopy += `Nota: ${ann.note}`;
+      }
+      await navigator.clipboard.writeText(textToCopy.trim());
+      setCopiedAnnotationId(ann.id);
+      setTimeout(() => setCopiedAnnotationId(null), 2000);
+    } catch (e) {
+      console.error("Failed to copy", e);
+    }
+  }
+
   async function handleDeleteAnnotation(id: string) {
     const ann = annotations?.find(a => a.id === id);
     if (!ann) return;
@@ -818,46 +839,27 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
           )}
           
           <div className="h-8 w-px bg-border-light mx-2 hidden md:block"></div>
-
-          <button 
-            onClick={() => setShowSidebar(!showSidebar)} 
-            className="p-2 text-ink hover:bg-ink/5 rounded-full transition-all active:scale-95 flex items-center justify-center"
-            title={showSidebar ? "Fechar Menu" : "Abrir Menu"}
-          >
-            {showSidebar ? <X className="w-5 h-5 text-red-500" /> : <Menu className="w-5 h-5" />}
-          </button>
-          
-          {canEdit && (
-            <div className="hidden md:flex items-center gap-1">
-              <button 
-                onClick={handleUndo} 
-                disabled={!canUndo}
-                className={cn(
-                  "p-2 rounded-full transition-all",
-                  canUndo ? "text-ink hover:bg-ink/5 active:scale-90" : "text-ink-light opacity-30 cursor-not-allowed"
-                )}
-                title="Desfazer"
-              >
-                <Undo className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={handleRedo} 
-                disabled={!canRedo}
-                className={cn(
-                  "p-2 rounded-full transition-all",
-                  canRedo ? "text-ink hover:bg-ink/5 active:scale-90" : "text-ink-light opacity-30 cursor-not-allowed"
-                )}
-                title="Refazer"
-              >
-                <Redo className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
       {/* Main Content & Sidebar Container */}
       <section className="flex-1 flex overflow-hidden bg-white relative">
+        
+        {/* Floating Menu Button */}
+        <AnimatePresence>
+          {!showSidebar && (
+            <motion.button 
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              onClick={() => setShowSidebar(true)} 
+              className="fixed top-20 right-6 md:top-24 md:right-10 w-10 h-10 bg-white shadow-md rounded-full z-30 border border-border-light text-ink hover:bg-ink hover:text-white transition-all focus:outline-none flex items-center justify-center isolate"
+              title="Abrir Menu"
+            >
+              <Menu className="w-4 h-4" />
+            </motion.button>
+          )}
+        </AnimatePresence>
         
         {/* Mobile Sidebar Overlay */}
         <AnimatePresence>
@@ -934,9 +936,38 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                       <p className="text-[10px] text-ink-muted">Controles e Anotações</p>
                     </div>
                   </div>
-                  <button onClick={() => setShowSidebar(false)} className="p-2 text-ink hover:bg-ink/5 rounded-full transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {canEdit && (
+                      <>
+                        <button 
+                          onClick={handleUndo} 
+                          disabled={!canUndo}
+                          className={cn(
+                            "p-2 rounded-full transition-all",
+                            canUndo ? "text-ink hover:bg-ink/5 active:scale-90" : "text-ink-light opacity-30 cursor-not-allowed"
+                          )}
+                          title="Desfazer"
+                        >
+                          <Undo className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={handleRedo} 
+                          disabled={!canRedo}
+                          className={cn(
+                            "p-2 rounded-full transition-all",
+                            canRedo ? "text-ink hover:bg-ink/5 active:scale-90" : "text-ink-light opacity-30 cursor-not-allowed"
+                          )}
+                          title="Refazer"
+                        >
+                          <Redo className="w-4 h-4" />
+                        </button>
+                        <div className="w-px h-4 bg-border-dark mx-1"></div>
+                      </>
+                    )}
+                    <button onClick={() => setShowSidebar(false)} className="p-2 text-ink hover:bg-ink/5 rounded-full transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="bg-paper p-3 rounded-lg border border-border-dark flex items-center justify-between">
@@ -1166,14 +1197,19 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                            {/* Ideas */}
                            <div className="space-y-2">
                              {annotations?.filter(a => a.startIndex === -1).map(ann => (
-                               <div key={ann.id} className="bg-white border border-border-dark p-3 rounded-lg group relative shadow-sm hover:shadow-md transition-all">
-                                 {canEdit && (
-                                   <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                     <button onClick={() => handleOpenEditGeneralNote(ann)} className="p-1 hover:bg-ink/5 rounded"><Edit2 className="w-3 h-3 text-ink-light" /></button>
-                                     <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:bg-red-50 rounded"><Trash2 className="w-3 h-3 text-red-500" /></button>
-                                   </div>
-                                 )}
-                                 <p className="text-[11px] font-sans text-ink leading-relaxed pr-8 line-clamp-4">{ann.note}</p>
+                               <div key={ann.id} className="bg-white border border-border-dark p-3 pb-8 rounded-lg group relative shadow-sm hover:shadow-md transition-all">
+                                 <div className="absolute bottom-1 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-2">
+                                   <button onClick={() => handleCopyNote(ann)} className="p-1.5 hover:bg-ink/5 rounded" title="Copiar">
+                                     {copiedAnnotationId === ann.id ? <CheckCircle2 className="w-3.5 h-3.5 text-ink-light" /> : <ClipboardCopy className="w-3.5 h-3.5 text-ink-light" />}
+                                   </button>
+                                   {canEdit && (
+                                     <>
+                                       <button onClick={() => handleOpenEditGeneralNote(ann)} className="p-1.5 hover:bg-ink/5 rounded" title="Editar"><Edit2 className="w-3.5 h-3.5 text-ink-light" /></button>
+                                       <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1.5 hover:bg-red-50 rounded" title="Excluir"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
+                                     </>
+                                   )}
+                                 </div>
+                                 <p className="text-[11px] font-sans text-ink leading-relaxed line-clamp-4">{ann.note}</p>
                                </div>
                              ))}
                              {annotations?.filter(a => a.startIndex === -1).length === 0 && (
@@ -1188,9 +1224,14 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                                 <div key={ann.id} className="p-3 border-l-2 border-gold bg-sidebar-muted/10">
                                   <div className="flex items-center justify-between mb-1">
                                     <span className="text-[9px] font-bold text-ink/40">#{idx + 1}</span>
-                                    {canEdit && (
-                                      <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
-                                    )}
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={() => handleCopyNote(ann)} className="p-1 hover:text-ink transition-colors text-ink/40" title="Copiar">
+                                        {copiedAnnotationId === ann.id ? <CheckCircle2 className="w-3 h-3" /> : <ClipboardCopy className="w-3 h-3" />}
+                                      </button>
+                                      {canEdit && (
+                                        <button onClick={() => handleDeleteAnnotation(ann.id)} className="p-1 hover:text-red-500 transition-colors text-ink/40" title="Excluir"><Trash2 className="w-3 h-3" /></button>
+                                      )}
+                                    </div>
                                   </div>
                                   <p className="text-[10px] italic font-serif text-ink-muted leading-relaxed line-clamp-2 mb-2">"{ann.selectedText}"</p>
                                   {ann.note && <p className="text-[11px] font-sans text-ink">{ann.note}</p>}
@@ -1282,8 +1323,15 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                 readOnly={!canEdit}
               />
             </div>
-            {canEdit && (
-              <div className="px-4 py-3 bg-sidebar flex items-center justify-end">
+            <div className="px-4 py-3 bg-sidebar flex items-center justify-between border-t border-border-light">
+              <button
+                onClick={() => handleCopyNote({ id: editingGeneralNoteId || 'draft-general', note: currentGeneralNote })}
+                className="p-1 hover:bg-ink/5 rounded-full transition-colors text-ink/40 hover:text-ink flex items-center justify-center"
+                title="Copiar ideia"
+              >
+                {copiedAnnotationId === (editingGeneralNoteId || 'draft-general') ? <CheckCircle2 className="w-4 h-4" /> : <ClipboardCopy className="w-4 h-4" />}
+              </button>
+              {canEdit && (
                 <button 
                   onClick={handleAddGeneralNote}
                   className="text-[10px] uppercase tracking-widest bg-ink text-white px-5 py-2 rounded-full font-bold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-30"
@@ -1291,8 +1339,8 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                 >
                   Salvar Ideia
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1420,6 +1468,14 @@ export function Reader({ bookId, setView, userId }: ReaderProps) {
                     className={cn("w-4 h-4 rounded-full border transition-all", canEdit ? "cursor-pointer" : "cursor-default", color, selectedColor === color ? "border-ink scale-110" : "border-transparent")}
                   />
                 ))}
+                <div className="w-px h-4 bg-border-dark mx-2"></div>
+                <button
+                  onClick={() => handleCopyNote({ id: editingAnnotationId || 'draft', selectedText: selectionRange?.text, note: currentNote })}
+                  className="p-1 hover:bg-ink/5 rounded-full transition-colors text-ink/40 hover:text-ink flex items-center justify-center"
+                  title="Copiar"
+                >
+                  {copiedAnnotationId === (editingAnnotationId || 'draft') ? <CheckCircle2 className="w-4 h-4" /> : <ClipboardCopy className="w-4 h-4" />}
+                </button>
               </div>
               {canEdit && (
                 <button 
